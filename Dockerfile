@@ -66,10 +66,6 @@ RUN chmod a+x /usr/local/bin/*
 # Add support for OTP authentication using a PAM module
 COPY ./otp/openvpn /etc/pam.d/
 
-# COPY container entrypoint
-COPY ./docker-entrypoint.sh ./
-RUN chmod a+x ./docker-entrypoint.sh
-
 # OpenVPN Internally uses port 1194/udp, 
 # remap using `docker run -p 443:1194/tcp`
 # OpenVPN Management interface on 2080/tcp
