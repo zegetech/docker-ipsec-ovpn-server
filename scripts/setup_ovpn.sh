@@ -49,7 +49,7 @@ ifconfig-pool-persist $EASYRSA_PKI/index.txt
 client-config-dir $OPENVPN/ccd
 
 # DHCP Push options force all traffic through VPN and sets DNS servers
-# push "redirect-gateway def1 bypass-dhcp"
+push "redirect-gateway def1 bypass-dhcp"
 push "route ${OVPN_CONF_IFCONFIG_INET}"
 push block-outside-dns
 push "dhcp-option DNS 8.8.8.8"

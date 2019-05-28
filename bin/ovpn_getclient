@@ -13,10 +13,10 @@ set -e
 if [ -z "$OPENVPN" ]; then
     export OPENVPN="$PWD"
 fi
-if ! source "$OPENVPN/ovpn_env.sh"; then
-    echo "Could not source $OPENVPN/ovpn_env.sh."
-    exit 1
-fi
+# if ! source "$OPENVPN/ovpn_env.sh"; then
+#     echo "Could not source $OPENVPN/ovpn_env.sh."
+#     exit 1
+# fi
 if [ -z "$EASYRSA_PKI" ]; then
     export EASYRSA_PKI="$OPENVPN/pki"
 fi
@@ -32,20 +32,27 @@ fi
 get_client_config() {
     mode="$1"
     echo "
+tls-client
+pull
 client
 nobind
 dev $OVPN_DEVICE
 key-direction 1
 remote-cert-tls server
-
-remote $OVPN_CN $OVPN_PORT $OVPN_PROTO"
+ns-cert-type server
+proto $OVPN_PROTO
+remote $OVPN_CN $OVPN_PORT"
     if [ "$OVPN_PROTO" == "udp6" ]; then
-        echo "remote $OVPN_CN $OVPN_PORT udp"
+        echo "proto udp"
     fi
     if [ "$OVPN_PROTO" == "tcp6" ]; then
-        echo "remote $OVPN_CN $OVPN_PORT tcp"
+        echo "proto tcp"
     fi
-    echo "$OVPN_ADDITIONAL_CLIENT_CONFIG
+    echo "
+verb 3
+persist-key
+persist-tun
+$OVPN_ADDITIONAL_CLIENT_CONFIG
 "
     if [ "$mode" == "combined" ]; then
         echo "
@@ -115,6 +122,7 @@ case "$parm" in
         cp "$EASYRSA_PKI/ca.crt" "$dir/ca.crt"
         cp "$EASYRSA_PKI/issued/${cn}.crt" "$dir/${cn}.crt"
         cp "$EASYRSA_PKI/ta.key" "$dir/ta.key"
+        echo "Generated ${dir}"
         ;;
     "" | "combined")
         get_client_config "combined"

@@ -77,9 +77,9 @@ RUN chmod 755 /opt/src/run.sh
 COPY ./scripts /opt/src/scripts
 RUN chmod 755 /opt/src/scripts/*
 
-# # COPY OpenVPN executables
-# COPY ./bin /usr/local/bin
-# RUN chmod a+x /usr/local/bin/*
+# COPY OpenVPN executables
+COPY ./bin /usr/local/bin
+RUN chmod a+x /usr/local/bin/*
 
 # Add support for OTP authentication using a PAM module
 COPY ./otp/openvpn /etc/pam.d/
