@@ -3,6 +3,7 @@ version: '3'
 services:
   vpn:
     build: .
+    # command: tail -f /dev/null
     image: kgathi2/ipsec-ovpn-server
     restart: always
     env_file:
@@ -11,21 +12,8 @@ services:
       - "500:500/udp"
       - "4500:4500/udp"
       - "1194:1194/udp"
-    depends_on:
-      - "gui"
     privileged: true
-    hostname: ipsec-vpn-server
-    container_name: ipsec-vpn-server
     volumes:
       - /lib/modules:/lib/modules:ro
       - ./volumes/ovpn:/etc/openvpn
       - ./volumes/ipsec:/etc/ipsec.d
-  gui:
-    image: awalach/openvpn-web-ui
-    container_name: kariz-openvpn-gui
-    ports:
-     - "8080:8080/tcp"
-    restart: always
-    volumes:
-     - ./volumes/ovpn:/etc/openvpn
-     - ./volumes/gui-db:/opt/openvpn-gui/db

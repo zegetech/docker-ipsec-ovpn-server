@@ -10,12 +10,14 @@ ENV SWAN_VER 3.27
 ENV L2TP_VER 1.3.12
 
 ENV OPENVPN /etc/openvpn
+ENV EASYRSA_VER 3.0.6
 ENV EASYRSA /usr/share/easy-rsa
 ENV EASYRSA_PKI $OPENVPN/pki
 ENV EASYRSA_VARS_FILE $OPENVPN/vars
 
 WORKDIR /opt/src
 
+# Install Packages
 RUN apt-get -yqq update \
      && DEBIAN_FRONTEND=noninteractive \
      apt-get -yqq --no-install-recommends install \
@@ -26,8 +28,10 @@ RUN apt-get -yqq update \
      libnss3-dev libnspr4-dev pkg-config libpam0g-dev \
      libcap-ng-dev libcap-ng-utils libselinux1-dev \
      libcurl4-nss-dev libpcap0.8-dev flex bison gcc make \
-     openvpn iptables bash easy-rsa libpam-google-authenticator pamtester \
-     && wget -t 3 -T 30 -nv -O libreswan.tar.gz "https://github.com/libreswan/libreswan/archive/v${SWAN_VER}.tar.gz" \
+     openvpn iptables bash libpam-google-authenticator pamtester
+
+#Install Libreswan
+RUN wget -t 3 -T 30 -nv -O libreswan.tar.gz "https://github.com/libreswan/libreswan/archive/v${SWAN_VER}.tar.gz" \
      || wget -t 3 -T 30 -nv -O libreswan.tar.gz "https://download.libreswan.org/libreswan-${SWAN_VER}.tar.gz" \
      && tar xzf libreswan.tar.gz \
      && rm -f libreswan.tar.gz \
@@ -37,8 +41,10 @@ RUN apt-get -yqq update \
      && make -s base \
      && make -s install-base \
      && cd /opt/src \
-     && rm -rf "/opt/src/libreswan-${SWAN_VER}" \
-     && wget -t 3 -T 30 -nv -O xl2tpd.tar.gz "https://github.com/xelerance/xl2tpd/archive/v${L2TP_VER}.tar.gz" \
+     && rm -rf "/opt/src/libreswan-${SWAN_VER}" 
+
+#Install XL2TPD
+RUN wget -t 3 -T 30 -nv -O xl2tpd.tar.gz "https://github.com/xelerance/xl2tpd/archive/v${L2TP_VER}.tar.gz" \
      || wget -t 3 -T 30 -nv -O xl2tpd.tar.gz "https://debian.osuosl.org/debian/pool/main/x/xl2tpd/xl2tpd_${L2TP_VER}.orig.tar.gz" \
      && tar xzf xl2tpd.tar.gz \
      && rm -f xl2tpd.tar.gz \
@@ -46,8 +52,17 @@ RUN apt-get -yqq update \
      && make -s \
      && PREFIX=/usr make -s install \
      && cd /opt/src \
-     && rm -rf "/opt/src/xl2tpd-${L2TP_VER}" \
-     && apt-get -yqq remove \
+     && rm -rf "/opt/src/xl2tpd-${L2TP_VER}"
+
+# Install Easy RSA
+RUN wget -t 3 -T 30 -nv -O easy-rsa.tgz "https://github.com/OpenVPN/easy-rsa/releases/download/v${EASYRSA_VER}/EasyRSA-unix-v${EASYRSA_VER}.tgz" \
+     && tar xzf easy-rsa.tgz \
+     && rm -f easy-rsa.tgz \
+     && mv "EasyRSA-v${EASYRSA_VER}/" ${EASYRSA} \
+     && ln -s "${EASYRSA}/easyrsa" /usr/local/bin/easyrsa
+
+# Remove build dependancies
+RUN apt-get -yqq remove \
      libnss3-dev libnspr4-dev pkg-config libpam0g-dev \
      libcap-ng-dev libcap-ng-utils libselinux1-dev \
      libcurl4-nss-dev libpcap0.8-dev flex bison gcc make \
@@ -59,9 +74,12 @@ RUN apt-get -yqq update \
 COPY ./run.sh /opt/src/run.sh
 RUN chmod 755 /opt/src/run.sh
 
-# COPY OpenVPN executables
-COPY ./bin /usr/local/bin
-RUN chmod a+x /usr/local/bin/*
+COPY ./scripts /opt/src/scripts
+RUN chmod 755 /opt/src/scripts/*
+
+# # COPY OpenVPN executables
+# COPY ./bin /usr/local/bin
+# RUN chmod a+x /usr/local/bin/*
 
 # Add support for OTP authentication using a PAM module
 COPY ./otp/openvpn /etc/pam.d/
