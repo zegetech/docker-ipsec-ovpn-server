@@ -313,7 +313,7 @@ while read var ; do
 done < <(export | egrep -o '(OVPN_[^=]+)')
 set -u
 
-conf=${OPENVPN:-}/openvpn.conf
+conf=${OPENVPN:-}/server.conf
 if [ -f "$conf" ]; then
     bak=$conf.$(date +%s).bak
     echo "Backing up $conf -> $bak"

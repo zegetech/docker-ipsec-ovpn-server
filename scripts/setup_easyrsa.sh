@@ -1,4 +1,6 @@
 #!/bin/bash
+
+# https://github.com/OpenVPN/easy-rsa/blob/v3.0.6/README.quickstart.md
 if [ ! -d "$EASYRSA_PKI" ]; then
 # Create /etc/openvpn/pki
 easyrsa init-pki

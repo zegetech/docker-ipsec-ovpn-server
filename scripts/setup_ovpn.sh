@@ -48,18 +48,20 @@ ifconfig-pool ${OVPN_CONF_IFCONFIG_POOL_START} ${OVPN_CONF_IFCONFIG_POOL_END}
 ifconfig-pool-persist $EASYRSA_PKI/index.txt
 client-config-dir $OPENVPN/ccd
 
-# DHCP Push options force all traffic through VPN and sets DNS servers
-push "redirect-gateway def1 bypass-dhcp"
-push "route ${OVPN_CONF_IFCONFIG_INET}"
+# Server routes
+route ${OVPN_CONF_ROUTE} ${OVPN_CONF_SUBNET}
+route ${OVPN_CONF_LAN_ROUTE_IP} ${OVPN_CONF_SUBNET}
+
+# Client routes DHCP Push options 
+# push "redirect-gateway def1 bypass-dhcp" # force all traffic through VPN
 push block-outside-dns
 push "dhcp-option DNS 8.8.8.8"
 push "dhcp-option DNS 8.8.4.4"
-
-# Routes
-route ${OVPN_CONF_ROUTE_IP} ${OVPN_CONF_SUBNET}
+push "route ${OVPN_CONF_ROUTE} ${OVPN_CONF_SUBNET}"
+push "route ${OVPN_CONF_PGW_ROUTE} ${OVPN_CONF_SUBNET}"
 
 # Logging
-# log-append /var/log/openvpn.log
+log-append /var/log/openvpn.log
 status /tmp/openvpn-status.log
 verb 3
 mute 10
