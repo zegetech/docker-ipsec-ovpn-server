@@ -50,7 +50,7 @@ client-config-dir $OPENVPN/ccd
 
 # Server routes
 route ${OVPN_CONF_ROUTE} ${OVPN_CONF_SUBNET}
-route ${OVPN_CONF_LAN_ROUTE_IP} ${OVPN_CONF_SUBNET}
+route ${OVPN_CONF_PGW_ROUTE} ${OVPN_CONF_SUBNET}
 
 # Client routes DHCP Push options 
 # push "redirect-gateway def1 bypass-dhcp" # force all traffic through VPN
