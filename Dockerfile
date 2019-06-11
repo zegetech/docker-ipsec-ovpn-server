@@ -1,6 +1,7 @@
 # Adapted from  
 # https://www.github.com/adamwalach/docker-openvpn
 # https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/Dockerfile
+# https://hub.docker.com/r/kgathi2/ipsec-ovpn-server
 
 FROM debian:stretch
 LABEL maintainer="Kariuki Gathitu <kgathi2@gmail.com>"
