@@ -5,8 +5,8 @@
 FROM debian:stretch
 LABEL maintainer="Kariuki Gathitu <kgathi2@gmail.com>"
 
-ENV REFRESHED_AT 2019-05-15
-ENV SWAN_VER 3.27
+ENV REFRESHED_AT 2019-06-10
+ENV SWAN_VER 3.29
 ENV L2TP_VER 1.3.12
 
 ENV OPENVPN /etc/openvpn
@@ -37,6 +37,7 @@ RUN wget -t 3 -T 30 -nv -O libreswan.tar.gz "https://github.com/libreswan/libres
      && rm -f libreswan.tar.gz \
      && cd "libreswan-${SWAN_VER}" \
      && printf 'WERROR_CFLAGS =\nUSE_DNSSEC = false\nUSE_DH31 = false\n' > Makefile.inc.local \
+     && printf 'USE_NSS_AVA_COPY = true\nUSE_NSS_IPSEC_PROFILE = false\n' >> Makefile.inc.local \
      && printf 'USE_GLIBC_KERN_FLIP_HEADERS = true\nUSE_SYSTEMD_WATCHDOG = false\n' >> Makefile.inc.local \
      && make -s base \
      && make -s install-base \
@@ -95,6 +96,5 @@ EXPOSE 500/udp 4500/udp
 
 VOLUME ["/etc/openvpn"]
 VOLUME ["/etc/ipsec.d"]
-VOLUME ["/lib/modules"]
 
 CMD ["/opt/src/run.sh"]
