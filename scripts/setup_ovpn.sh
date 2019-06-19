@@ -40,7 +40,6 @@ user nobody
 group nogroup
 
 # IP pool
-# server ${OVPN_SERVER_GATEWAY_IP} ${OVPN_CONF_SUBNET}
 mode server
 tls-server
 ifconfig ${OVPN_CONF_IFCONFIG_INET} ${OVPN_CONF_IFCONFIG_DEST}

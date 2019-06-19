@@ -161,7 +161,8 @@ config setup
   interfaces=%defaultroute
   uniqueids=no
   keep-alive=10
-  
+  logfile=/var/log/ipsec.log
+
 include /etc/ipsec.d/*.conf
 EOF
 
@@ -211,7 +212,7 @@ cat > /etc/ipsec.d/${PGW_NAME}.conf <<EOF
 conn $PGW_NAME
   type=tunnel
   # Left security gateway, subnet behind it, nexthop toward right.
-  left=$PUBLIC_IP #Public Local IP
+  left=%defaultroute
   leftsubnets={$PGW_LEFT_SUBNETS}
   leftnexthop=%defaultroute
 
@@ -221,16 +222,17 @@ conn $PGW_NAME
 
   # Phase 1
   keyexchange=ike
+  ikev2=never
   authby=secret
-  ike=3des-sha1;modp1024
-  # Algorithm: AES(256) / Hash: SHA2 / Group: DH 2 (1024)
+  ike=3des-sha1;dh2
+  # Algorithm: 3DES(168) / Hash: SHA1 / Group: DH 2 (1024)
   ikelifetime=86400s
 
   # Phase 2
   phase2=esp
-  # Algorithm: AES(256) / Hash: SHA2 / Group: DH 2 (1024)
-  phase2alg=aes128-sha1;modp1024
-  keylife=28800s
+  # Algorithm: AES(128) / Hash: SHA1 / Group: DH 2 (1024)
+  phase2alg=aes128-sha1;dh2
+  salifetime=43200s
   
   pfs=no
   auto=start
@@ -248,7 +250,7 @@ cat > /etc/ipsec.d/default.secrets <<EOF
 EOF
 
 cat > /etc/ipsec.d/${PGW_NAME}.secrets <<EOF
-$PUBLIC_IP $PGW_IP : PSK "$PGW_PSK"
+%any $PGW_IP : PSK "$PGW_PSK"
 EOF
 
 # Create xl2tpd config
