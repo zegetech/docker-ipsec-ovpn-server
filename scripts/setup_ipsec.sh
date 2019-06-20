@@ -156,7 +156,7 @@ cat > /etc/ipsec.conf <<EOF
 version 2.0
 
 config setup
-  virtual-private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12,%v4:!192.168.42.0/24,%v4:!192.168.43.0/24,%v4:!$PGW_RIGHT_SUBNETS:!$PGW_LEFT_SUBNETS
+  virtual-private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12,%v4:!192.168.42.0/24,%v4:!192.168.43.0/24,%v4:!$PGW_NET:!$OVPN_NET
   protostack=netkey
   interfaces=%defaultroute
   uniqueids=no
@@ -213,7 +213,7 @@ conn $PGW_NAME
   type=tunnel
   # Left security gateway, subnet behind it, nexthop toward right.
   left=%defaultroute
-  leftsubnets={$PGW_LEFT_SUBNETS}
+  leftsubnets={$OVPN_NET}
   leftnexthop=%defaultroute
 
   # Right security gateway, subnet behind it, nexthop toward left.
@@ -343,6 +343,7 @@ $SYST net.ipv4.conf.default.send_redirects=0
 $SYST net.ipv4.conf.default.rp_filter=0
 $SYST net.ipv4.conf.eth0.send_redirects=0
 $SYST net.ipv4.conf.eth0.rp_filter=0
+$SYST net.ipv4.conf.lo.rp_filter = 0
 
 # Create IPTables rules
 iptables -I INPUT 1 -p udp --dport 1701 -m policy --dir in --pol none -j DROP
@@ -357,12 +358,16 @@ iptables -I FORWARD 3 -i ppp+ -o eth+ -j ACCEPT
 iptables -I FORWARD 4 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j ACCEPT
 iptables -I FORWARD 5 -i eth+ -d "$XAUTH_NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -I FORWARD 6 -s "$XAUTH_NET" -o eth+ -j ACCEPT
+iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
+iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
 # Uncomment if you wish to disallow traffic between VPN clients themselves
 # iptables -I FORWARD 2 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j DROP
 # iptables -I FORWARD 3 -s "$XAUTH_NET" -d "$XAUTH_NET" -j DROP
 iptables -A FORWARD -j DROP
 iptables -t nat -I POSTROUTING -s "$XAUTH_NET" -o eth+ -m policy --dir out --pol none -j MASQUERADE
 iptables -t nat -I POSTROUTING -s "$L2TP_NET" -o eth+ -j MASQUERADE
+iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j MASQUERADE
+iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
 
 # Update file attributes
 chmod 600 /etc/ipsec.d/*.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd
