@@ -69,5 +69,43 @@ Some links useful in troubleshooting IPsec client conectivity
 
 For Further troubleshooting please see [original repos](#adaptation). Also for configuring aditional Lt2pD or CISCO Xauth client users [here](https://github.com/hwdsl2/docker-ipsec-vpn-server#how-to-use-this-image)
 
+## Issue faced
+Disabling rf_filter for ipsec. To check configs do
+```bash
+sysctl -a | grep \\.ip_forward
+sysctl -a | grep \\.rp_filter
+
+# If the flag is wrong use similar to this
+sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
+
+```
+Forwarding traffic between subnets. OVPN_NET <> PGW_NET
+Added the following in iptables file
+```bash
+iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
+iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
+iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j MASQUERADE
+iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
+```
+
+
 ## Note on Peer IP SNATing
 When connecting the IPsec client, the IPSEC peer IP has to expect a static IP address from your pod/host. Kubernetes pods SNAT the IP of the node that they are spawned in. So in order to have all your cluster pods have one static IP, the pods need to be behind a NAT gateway that will SNAT all pods traffic within the cluster. 
+Tried a couple of solution
+1. https://github.com/nirmata/kube-static-egress-ip
+2. https://ritazh.com/whitelist-egress-traffic-from-kubernetes-8a3adefd94b2
+3. https://medium.com/google-cloud/using-cloud-nat-with-gke-cluster-c82364546d9e
+4. https://itnext.io/benchmark-results-of-kubernetes-network-plugins-cni-over-10gbit-s-network-36475925a560
+5. https://kubernetes.io/docs/concepts/cluster-administration/networking/
+6. https://medium.com/bluekiri/setup-a-kubernetes-cluster-on-gcp-with-cloud-nat-efe6aa5780c6
+7. https://medium.com/bluekiri/high-availability-nat-gateway-at-google-cloud-platform-with-cloud-nat-8a792b1c4cc4
+8. https://cloud.google.com/kubernetes-engine/docs/how-to/ip-masquerade-agent
+9. https://cloud.google.com/nat/docs/using-nat
+10. https://cloud.google.com/nat/docs/gke-example
+
+Eventually went for quick win with Google NAT gateway. 
+
+## Todo
+1. Check Ip packets are not being SNATed to the VPN gatway and that the OVPN client can be seen at PGW end 
+2. Get CNI NATing working on Flannel
+3. [Kubernetes Security best practises](https://github.com/freach/kubernetes-security-best-practice/blob/master/README.md)
