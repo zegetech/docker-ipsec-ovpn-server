@@ -349,17 +349,18 @@ $SYST net.ipv4.conf.lo.rp_filter=0
 iptables -I INPUT 1 -p udp --dport 1701 -m policy --dir in --pol none -j DROP
 iptables -I INPUT 2 -m conntrack --ctstate INVALID -j DROP
 iptables -I INPUT 3 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -I INPUT 4 -p udp -m multiport --dports 500,4500 -j ACCEPT
-iptables -I INPUT 5 -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT
-iptables -I INPUT 6 -p udp --dport 1701 -j DROP
+iptables -I INPUT 4 -p tcp -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -I INPUT 5 -p udp -m multiport --dports 500,4500 -j ACCEPT
+iptables -I INPUT 6 -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT
+iptables -I INPUT 7 -p udp --dport 1701 -j DROP
 iptables -I FORWARD 1 -m conntrack --ctstate INVALID -j DROP
 iptables -I FORWARD 2 -i eth+ -o ppp+ -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -I FORWARD 3 -i ppp+ -o eth+ -j ACCEPT
 iptables -I FORWARD 4 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j ACCEPT
 iptables -I FORWARD 5 -i eth+ -d "$XAUTH_NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 iptables -I FORWARD 6 -s "$XAUTH_NET" -o eth+ -j ACCEPT
-iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
-iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
+iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -m conntrack --ctstate NEW,RELATED,ESTABLISHED -j ACCEPT
+iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -m conntrack --ctstate NEW,RELATED,ESTABLISHED -j ACCEPT
 # Uncomment if you wish to disallow traffic between VPN clients themselves
 # iptables -I FORWARD 2 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j DROP
 # iptables -I FORWARD 3 -s "$XAUTH_NET" -d "$XAUTH_NET" -j DROP
