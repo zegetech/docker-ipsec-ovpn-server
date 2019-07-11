@@ -38,6 +38,7 @@ client
 nobind
 dev $OVPN_DEVICE
 key-direction 1
+keepalive 10 60 
 remote-cert-tls server
 ns-cert-type server
 proto $OVPN_PROTO

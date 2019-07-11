@@ -366,8 +366,9 @@ iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
 iptables -A FORWARD -j DROP
 iptables -t nat -I POSTROUTING -s "$XAUTH_NET" -o eth+ -m policy --dir out --pol none -j MASQUERADE
 iptables -t nat -I POSTROUTING -s "$L2TP_NET" -o eth+ -j MASQUERADE
-iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j MASQUERADE
-iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
+# iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
+# iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j MASQUERADE
+# iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j SNAT --to-source OVPN_CONF_IFCONFIG_INET 
 
 # Update file attributes
 chmod 600 /etc/ipsec.d/*.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd

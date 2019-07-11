@@ -89,9 +89,9 @@ iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
 ```
 
 
-## Note on Peer IP SNATing
-When connecting the IPsec client, the IPSEC peer IP has to expect a static IP address from your pod/host. Kubernetes pods SNAT the IP of the node that they are spawned in. So in order to have all your cluster pods have one static IP, the pods need to be behind a NAT gateway that will SNAT all pods traffic within the cluster. 
-Tried a couple of solution
+## Note on Peer IP SNATing through Firewall whitelist
+When connecting the IPsec client behind a firewall, the IPSEC peer IP has to expect a static IP address from your pod/host configured in its firewall. Kubernetes pods SNAT the IP of the node that they are spawned in which is not consistent. So in order to have all your cluster pods have one static IP, the pods need to be behind a NAT gateway that will SNAT all pods traffic within the cluster. 
+Attempted a couple of options
 1. https://github.com/nirmata/kube-static-egress-ip
 2. https://ritazh.com/whitelist-egress-traffic-from-kubernetes-8a3adefd94b2
 3. https://medium.com/google-cloud/using-cloud-nat-with-gke-cluster-c82364546d9e
