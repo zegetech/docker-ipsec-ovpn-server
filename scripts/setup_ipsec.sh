@@ -150,17 +150,16 @@ DNS_SRV1=${VPN_DNS_SRV1:-'8.8.8.8'}
 DNS_SRV2=${VPN_DNS_SRV2:-'8.8.4.4'}
 DNS_SRVS="\"$DNS_SRV1 $DNS_SRV2\""
 [ -n "$VPN_DNS_SRV1" ] && [ -z "$VPN_DNS_SRV2" ] && DNS_SRVS="$DNS_SRV1"
+MTU=$(cat /sys/class/net/eth0/mtu)
 
 # Create IPsec (Libreswan) config
 cat > /etc/ipsec.conf <<EOF
-version 2.0
-
 config setup
   virtual-private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12,%v4:!192.168.42.0/24,%v4:!192.168.43.0/24,%v4:!$PGW_NET:!$OVPN_NET
   protostack=netkey
   interfaces=%defaultroute
   uniqueids=no
-  keep-alive=10
+  keep-alive=60
   logfile=/var/log/ipsec.log
 
 include /etc/ipsec.d/*.conf
@@ -225,6 +224,7 @@ conn $PGW_NAME
   ikev2=never
   authby=secret
   ike=3des-sha1;dh2
+  # ike=aes_gcm-sha2 # faster algo but not MPESA VPN supported
   # Algorithm: 3DES(168) / Hash: SHA1 / Group: DH 2 (1024)
   ikelifetime=86400s
 
@@ -232,8 +232,12 @@ conn $PGW_NAME
   phase2=esp
   # Algorithm: AES(128) / Hash: SHA1 / Group: DH 2 (1024)
   phase2alg=aes128-sha1;dh2
+  # phase2alg=aes_gcm128-null # faster algo but not MPESA VPN supported
   salifetime=43200s
-  
+
+  #mtu eth0 1460 # G2 1397
+  mtu=$MTU 
+  replay-window=0
   pfs=no
   auto=start
   aggrmode=no
@@ -346,30 +350,46 @@ $SYST net.ipv4.conf.eth0.rp_filter=0
 $SYST net.ipv4.conf.lo.rp_filter=0
 
 # Create IPTables rules
-iptables -I INPUT 1 -p udp --dport 1701 -m policy --dir in --pol none -j DROP
-iptables -I INPUT 2 -m conntrack --ctstate INVALID -j DROP
-iptables -I INPUT 3 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -I INPUT 4 -p tcp -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
-iptables -I INPUT 5 -p udp -m multiport --dports 500,4500 -j ACCEPT
-iptables -I INPUT 6 -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT
-iptables -I INPUT 7 -p udp --dport 1701 -j DROP
-iptables -I FORWARD 1 -m conntrack --ctstate INVALID -j DROP
-iptables -I FORWARD 2 -i eth+ -o ppp+ -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -I FORWARD 3 -i ppp+ -o eth+ -j ACCEPT
-iptables -I FORWARD 4 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j ACCEPT
-iptables -I FORWARD 5 -i eth+ -d "$XAUTH_NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-iptables -I FORWARD 6 -s "$XAUTH_NET" -o eth+ -j ACCEPT
-iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -m conntrack --ctstate NEW,RELATED,ESTABLISHED -j ACCEPT
-iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -m conntrack --ctstate NEW,RELATED,ESTABLISHED -j ACCEPT
+# iptables -N LOG_DROP
+# iptables -A LOG_DROP -j LOG --log-prefix "iptables denied: "
+# iptables -A LOG_DROP -j DROP
+# iptables -N LOG_ACCEPT
+# iptables -A ACCEPT -j LOG --log-prefix "iptables accepted: "
+# iptables -A ACCEPT -j ACCEPT
+
+# Speed Boost: Don't track UDP as well as traffic between OVPN and PGW
+iptables -t raw -I PREROUTING -p udp -m multiport --dports 500,4500,1194 -j NOTRACK
+iptables -t raw -I PREROUTING -s "$OVPN_NET" -d "$PGW_NET"  -j NOTRACK
+iptables -t raw -I PREROUTING -s "$PGW_NET" -d "$OVPN_NET"  -j NOTRACK
+
+iptables -A INPUT -p udp -m multiport --dports 500,4500,1194 -j ACCEPT
+iptables -A INPUT -p udp --dport 1701 -m policy --dir in --pol none -j DROP
+iptables -A INPUT -p udp --dport 1701 -m policy --dir in --pol ipsec -j ACCEPT
+iptables -A INPUT -p udp --dport 1701 -j DROP
+iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
+iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# When MTU is properly set in tunnel config for PGW, this is not needed
+# iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS  --clamp-mss-to-pmtu
+iptables -A FORWARD -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
+iptables -A FORWARD -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
+iptables -A FORWARD -m conntrack --ctstate INVALID -j DROP
+# When conntrack is tracking tun traffic, this will be relevant
+# iptables -A FORWARD -i tun+ -o eth+ -j ACCEPT
+# iptables -A FORWARD -i eth+ -o tun+ -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -p tcp -m conntrack --ctstate NEW -j ACCEPT
+iptables -A FORWARD -i ppp+ -o eth+ -j ACCEPT
+iptables -A FORWARD -i eth+ -o ppp+ -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -s "$XAUTH_NET" -o eth+ -j ACCEPT
+iptables -A FORWARD -i eth+ -d "$XAUTH_NET" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j ACCEPT
 # Uncomment if you wish to disallow traffic between VPN clients themselves
-# iptables -I FORWARD 2 -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j DROP
-# iptables -I FORWARD 3 -s "$XAUTH_NET" -d "$XAUTH_NET" -j DROP
+# iptables -A FORWARD -i ppp+ -o ppp+ -s "$L2TP_NET" -d "$L2TP_NET" -j DROP
+# iptables -A FORWARD -s "$XAUTH_NET" -d "$XAUTH_NET" -j DROP
 iptables -A FORWARD -j DROP
+
 iptables -t nat -I POSTROUTING -s "$XAUTH_NET" -o eth+ -m policy --dir out --pol none -j MASQUERADE
 iptables -t nat -I POSTROUTING -s "$L2TP_NET" -o eth+ -j MASQUERADE
-# iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
-# iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j MASQUERADE
-# iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j SNAT --to-source OVPN_CONF_IFCONFIG_INET 
 
 # Update file attributes
 chmod 600 /etc/ipsec.d/*.secrets /etc/ppp/chap-secrets /etc/ipsec.d/passwd

@@ -39,7 +39,6 @@ ovpn_getclient $CLIENT_CERT combined-save
 ovpn_getclient $CLIENT_CERT separated
 ```
 ### Specify Static IP for client (optional)
-Specify a static ip for a client
 ```bash
 # Specify Static IP for OVPN clients
 CLIENT_CERT=vpn-client-01
@@ -50,11 +49,101 @@ EOF
 ```
 
 ### Retrieve client certificate from docker container or Kubernetes pod
-On your docker/kubectl localhost, copy the files if selected separated or combined-save
+On your docker/kubectl localhost, copy the files if selected `separated` or `combined-save`
 ```bash
 kubectl cp <some-namespace>/<some-pod>:/etc/openvpn/clients/vpn-client-01 /tmp/clients/vpn-client-01
 
 docker cp <container>:/etc/openvpn/clients/vpn-client-01 /tmp/clients/vpn-client-01
+```
+
+### Logging
+Logging is important for troubleshooting iptables and other things. However `LOG` does not work as presecribed on the internet using rsyslog and family  for iptables. Had to use netfilter log `NFLOG`. Here is a good [reference](https://blog.sleeplessbeastie.eu/2018/08/01/how-to-log-dropped-connections-from-iptables-firewall-using-netfilter-userspace-logging-daemon/).
+
+`NFLOG` uses kernel modules so we need to mount the `/lib/modules` on docker/kubernetes host. For Kubernetes, use an `UBUNTU` node type. 
+
+Then in the container/pod install `ulogd2`
+```bash
+apt-get update && apt-get install -y ulogd2
+```
+
+Then copy `extra/ulogd.conf` to the container ulog config file `/etc/ulogd.conf`. This sets up 2 netfilter `nflog` interfaces `nflog:11` and `nflog:12`. You can add more if needed
+```bash
+kubectl cp path_to/extra/ulogd.conf container_id:/etc/ulogd.conf
+```
+
+To log `iptables` add the `LOG_DROP` chain for example as follows
+```bash
+iptables -N LOG_DROP
+iptables -A LOG_DROP -j NFLOG --nflog-prefix "[fw-inc-drop]:" --nflog-group 12
+iptables -A LOG_DROP -j DROP
+
+iptables -A FORWARD -m conntrack --ctstate INVALID -j LOG_DROP
+```
+
+Then you can capture the logs generated using `tail -f` or `tcpdump` on the netfilter interface.
+```bash
+# The capture tcpdump on the interface. Daemon has to be off
+tcpdump -i nflog:11 
+tcpdump -i nflog:12
+
+# Capture tail logs
+service ulogd2 start
+tail -f /var/log/ulog/firewall.log /var/log/ulog/firewall-ssh-drop.log
+```
+
+## iptables
+Configure [iptables](https://linux.die.net/man/8/iptables) for your usecase if needed. Important to note are the ipsec issue [here](https://libreswan.org/wiki/FAQ#My_ssh_sessions_hang_or_connectivity_is_very_slow) and [here](https://www.zeitgeist.se/2013/11/26/mtu-woes-in-ipsec-tunnels-how-to-fix/). Also important to optimise your ipsec tunnel and `iptables` for speed
+
+Forwarding traffic between subnets. OVPN_NET <> PGW_NET as well as fix ipsec MTU configuration.
+Added the following in `iptables` configuration
+```bash
+iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS  --clamp-mss-to-pmtu
+iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
+iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
+```
+
+`iptables` are edited and take effect immediately they are saved. While logged into the terminal via `kubectl`, you can run the commands and test different settings. Here are a few helpful commands
+```bash
+# Reset  Iptables
+iptables -F
+iptables -X
+
+# Reset all chains
+iptables -t nat -F
+iptables -t nat -X
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -t raw -F
+iptables -t raw -X
+iptables -t security -F
+iptables -t security -X
+
+# Set default accept policies. No firewall if these are the only rules
+iptables -P INPUT ACCEPT
+iptables -P FORWARD ACCEPT
+iptables -P OUTPUT ACCEPT
+
+# Save IP tables
+iptables-save
+
+# List iptables stats including packet counter
+iptables -L -nv --line-numbers
+```
+### Faster IPSEC and IPTABLES
+The following [benchmarking and performance testing link](https://libreswan.org/wiki/Benchmarking_and_Performance_testing) is also important in helping to optimize ipsec speed for packet transfer
+
+Here's a link for [faster iptables](https://blog.cloudflare.com/how-to-drop-10-million-packets/) and [about stateless firewall](https://strongarm.io/blog/linux-stateless-firewall/) here
+
+
+## Issue faced
+Disabling `rf_filter` for ipsec. To check configs do
+```bash
+sysctl -a | grep \\.ip_forward
+sysctl -a | grep \\.rp_filter
+
+# If the flag is wrong use similar to this
+sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
+
 ```
 
 ## IPsec client connectivity troubleshooting
@@ -69,25 +158,31 @@ Some links useful in troubleshooting IPsec client conectivity
 
 For Further troubleshooting please see [original repos](#adaptation). Also for configuring aditional Lt2pD or CISCO Xauth client users [here](https://github.com/hwdsl2/docker-ipsec-vpn-server#how-to-use-this-image)
 
-## Issue faced
-Disabling rf_filter for ipsec. To check configs do
+## Packet Troubleshooting
+You may run into some issues when setting up the tunnel. Here is an [example](https://github.com/hwdsl2/docker-ipsec-vpn-server/issues/152). In most cases you need to analyse the raw traffic to and from your servers and clients
+
+You may use some tools to troubleshoot like
+1. `tcpdump`
+2. `ssldump`
+3. `ulogd`
+4. Wireshark or `tshark`
+
+For packet tracing use `tcpdump` and `ssldump` to check for issues and troubleshoot `iptables`. 
+
+examples
 ```bash
-sysctl -a | grep \\.ip_forward
-sysctl -a | grep \\.rp_filter
+apt-get update && apt-get install -y tcpdump ssldump
 
-# If the flag is wrong use similar to this
-sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
+# TCP DUMP
+tcpdump -D
+tcpdump -i tun0 -nn -A
+tcpdump -i tun0 -c 5
+tcpdump -i tun0 -nn "src host X.X.X.X" or "dst host X.X.X.X"
+tcpdump -i tun0 -nn -w webserver.pcap # for analysis on wiresharl
 
+# SSL DUMP
+ssldump -i tun0 port 18423
 ```
-Forwarding traffic between subnets. OVPN_NET <> PGW_NET
-Added the following in iptables file
-```bash
-iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
-iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
-iptables -t nat -I POSTROUTING -s "$OVPN_NET" -o tun+ -j MASQUERADE
-iptables -t nat -I POSTROUTING -s "$PGW_NET" -o tun+ -j MASQUERADE
-```
-
 
 ## Note on Peer IP SNATing through Firewall whitelist
 When connecting the IPsec client behind a firewall, the IPSEC peer IP has to expect a static IP address from your pod/host configured in its firewall. Kubernetes pods SNAT the IP of the node that they are spawned in which is not consistent. So in order to have all your cluster pods have one static IP, the pods need to be behind a NAT gateway that will SNAT all pods traffic within the cluster. 
@@ -106,6 +201,5 @@ Attempted a couple of options
 Eventually went for quick win with Google NAT gateway. 
 
 ## Todo
-1. Check Ip packets are not being SNATed to the VPN gatway and that the OVPN client can be seen at PGW end 
-2. Get CNI NATing working on Flannel
-3. [Kubernetes Security best practises](https://github.com/freach/kubernetes-security-best-practice/blob/master/README.md)
+1. Get CNI NATing working on Flannel
+2. [Kubernetes Security best practises](https://github.com/freach/kubernetes-security-best-practice/blob/master/README.md)
