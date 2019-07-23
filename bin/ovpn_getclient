@@ -40,7 +40,6 @@ dev $OVPN_DEVICE
 key-direction 1
 keepalive 10 60 
 remote-cert-tls server
-ns-cert-type server
 proto $OVPN_PROTO
 remote $OVPN_CN $OVPN_PORT"
     if [ "$OVPN_PROTO" == "udp6" ]; then
@@ -90,6 +89,7 @@ tls-auth ta.key 1
 
     if [ -n "$OVPN_TLS_CIPHER" ]; then
         echo "tls-cipher $OVPN_TLS_CIPHER"
+        echo "tls-version-min 1.2"
     fi
 
     if [ -n "$OVPN_CIPHER" ]; then

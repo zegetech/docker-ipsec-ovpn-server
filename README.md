@@ -20,6 +20,16 @@ The image is adapted from
 1. docker-compose.yaml
 2. vpn.env file for environmental variables
 
+## System requirements
+This server/node will be running Open VPN as well as Libreswan. Below are the requirements 
+
+1. CPU requirments is high due to encryption and decryption. As a rule of thumb you should assume that on a modern CPU with AES-NI chipset, for every megabit per second of data traffic (in one direction) you need about 20MHz
+2. Memory dependent on number of connected devices. Start at 1GB anc could go lower
+3. Bandwidth requirements are completely dependent on how much data you wish to push through the VPN tunnels in total
+4. Disk requirements are fairly low. A minimal Linux installation could fit on even 2 gigabytes.
+
+[References](https://openvpn.net/vpn-server-resources/openvpn-access-server-system-requirements/)
+
 ## Open VPN Certificates
 ### Generating Open VPN client certificates
 You may generate client certificates by running the following in the container
@@ -90,6 +100,27 @@ tcpdump -i nflog:12
 service ulogd2 start
 tail -f /var/log/ulog/firewall.log /var/log/ulog/firewall-ssh-drop.log
 ```
+
+## MTU (Maximum transmission unit) config
+In order to make sure that the VPN as well as the tunnel is workng well, care must be taken to set a proper MTU value. MTU is the largest packet size that can be transmitted without fragmentation.
+
+Discovering the correct MTU is very straightforward and can be achieved using ping. Use the respective following commands (change www.example.com to suit the `PGW` ip)
+
+*On Windows*
+```bash
+ping -n 1 -l 1500 -f www.example.com
+```
+*On Linux*
+```bash
+ping -M do -s 1500 -c 1 www.example.com
+```
+*On Mac*
+```bash
+ping -D -v -s 1500 -c 1 www.example.com
+```
+Decrease the 1500 value by ~10 each time, until the ping succeeds. Once the ping succeeds(the highest value at which the ping succeeds) the value used is the MTU you should use.
+
+Then set the MTU value in the `vpn.env` variable `OVPN_MTU`
 
 ## iptables
 Configure [iptables](https://linux.die.net/man/8/iptables) for your usecase if needed. Important to note are the ipsec issue [here](https://libreswan.org/wiki/FAQ#My_ssh_sessions_hang_or_connectivity_is_very_slow) and [here](https://www.zeitgeist.se/2013/11/26/mtu-woes-in-ipsec-tunnels-how-to-fix/). Also important to optimise your ipsec tunnel and `iptables` for speed

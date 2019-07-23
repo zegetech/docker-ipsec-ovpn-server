@@ -150,7 +150,8 @@ DNS_SRV1=${VPN_DNS_SRV1:-'8.8.8.8'}
 DNS_SRV2=${VPN_DNS_SRV2:-'8.8.4.4'}
 DNS_SRVS="\"$DNS_SRV1 $DNS_SRV2\""
 [ -n "$VPN_DNS_SRV1" ] && [ -z "$VPN_DNS_SRV2" ] && DNS_SRVS="$DNS_SRV1"
-MTU=$(cat /sys/class/net/eth0/mtu)
+
+MTU=${OVPN_MTU:-$(cat /sys/class/net/eth0/mtu)}
 
 # Create IPsec (Libreswan) config
 cat > /etc/ipsec.conf <<EOF
@@ -235,7 +236,7 @@ conn $PGW_NAME
   # phase2alg=aes_gcm128-null # faster algo but not MPESA VPN supported
   salifetime=43200s
 
-  #mtu eth0 1460 # G2 1397
+  #mtu eth0 1460 # G2 1362
   mtu=$MTU 
   replay-window=0
   pfs=no
@@ -369,7 +370,7 @@ iptables -A INPUT -p udp --dport 1701 -j DROP
 iptables -A INPUT -m conntrack --ctstate INVALID -j DROP
 iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 
-# When MTU is properly set in tunnel config for PGW, this is not needed
+# When MTU is properly set in PGW tunnel and vpnclient config, this is not needed
 # iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS  --clamp-mss-to-pmtu
 iptables -A FORWARD -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
 iptables -A FORWARD -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
