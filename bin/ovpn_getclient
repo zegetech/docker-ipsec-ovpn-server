@@ -76,6 +76,7 @@ key ${cn}.key
 ca ca.crt
 cert ${cn}.crt
 tls-auth ta.key 1
+fast-io
 "
     fi
 
