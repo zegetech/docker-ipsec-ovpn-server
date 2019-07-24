@@ -53,7 +53,7 @@ route ${OVPN_CONF_PGW_ROUTE} ${OVPN_CONF_SUBNET}
 
 # Client routes DHCP Push options 
 # push "redirect-gateway def1 bypass-dhcp" # force all traffic through VPN
-push block-outside-dns
+# push block-outside-dns # Not applicable for non windows servers
 push "dhcp-option DNS 8.8.8.8"
 push "dhcp-option DNS 8.8.4.4"
 push "route ${OVPN_CONF_ROUTE} ${OVPN_CONF_SUBNET}"
@@ -69,6 +69,7 @@ mute 10
 persist-key
 persist-tun
 fast-io
+auth-nocache
 EOF
 
 # Clean-up duplicate configs
