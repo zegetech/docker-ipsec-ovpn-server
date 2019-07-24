@@ -68,7 +68,7 @@ mute 10
 # Misc
 persist-key
 persist-tun
-comp-lzo
+fast-io
 EOF
 
 # Clean-up duplicate configs

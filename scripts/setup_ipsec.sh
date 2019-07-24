@@ -151,7 +151,7 @@ DNS_SRV2=${VPN_DNS_SRV2:-'8.8.4.4'}
 DNS_SRVS="\"$DNS_SRV1 $DNS_SRV2\""
 [ -n "$VPN_DNS_SRV1" ] && [ -z "$VPN_DNS_SRV2" ] && DNS_SRVS="$DNS_SRV1"
 
-MTU=${OVPN_MTU:-$(cat /sys/class/net/eth0/mtu)}
+# MTU=${OVPN_MTU:-$(cat /sys/class/net/eth0/mtu)}
 
 # Create IPsec (Libreswan) config
 cat > /etc/ipsec.conf <<EOF
@@ -236,8 +236,9 @@ conn $PGW_NAME
   # phase2alg=aes_gcm128-null # faster algo but not MPESA VPN supported
   salifetime=43200s
 
-  #mtu eth0 1460 # G2 1362
-  mtu=$MTU 
+  # MTU should be set on Client to tunnel. 
+  # mtu eth0 1460 # G2 1362
+  # mtu=$MTU 
   replay-window=0
   pfs=no
   auto=start

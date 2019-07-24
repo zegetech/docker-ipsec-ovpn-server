@@ -167,14 +167,13 @@ OVPN_CIPHER=''
 OVPN_AUTH=''
 OVPN_EXTRA_CONFIG=''
 CUSTOM_ROUTE_CONFIG=''
-OVPN_COMP_LZO=0
 OVPN_DISABLE_PUSH_BLOCK_DNS=0
 
 # Import defaults if present
 [ -r "$OVPN_ENV" ] && source "$OVPN_ENV"
 
 # Parse arguments
-while getopts ":a:e:E:C:T:r:s:du:bcp:n:k:DNmf:tz2" opt; do
+while getopts ":a:e:E:C:T:r:s:du:bcp:n:k:DNmf:t2" opt; do
     case $opt in
         a)
             OVPN_AUTH="$OPTARG"
@@ -232,9 +231,6 @@ while getopts ":a:e:E:C:T:r:s:du:bcp:n:k:DNmf:tz2" opt; do
         t)
             OVPN_DEVICE="tap"
             ;;
-        z)
-            OVPN_COMP_LZO=1
-            ;;
         2)
             OVPN_OTP_AUTH=1
             ;;
@@ -288,7 +284,6 @@ export OVPN_SERVER OVPN_ROUTES OVPN_DEFROUTE
 export OVPN_SERVER_URL OVPN_ENV OVPN_PROTO OVPN_CN OVPN_PORT
 export OVPN_CLIENT_TO_CLIENT OVPN_PUSH OVPN_NAT OVPN_DNS OVPN_MTU OVPN_DEVICE
 export OVPN_TLS_CIPHER OVPN_CIPHER OVPN_AUTH
-export OVPN_COMP_LZO
 export OVPN_DISABLE_PUSH_BLOCK_DNS
 export OVPN_OTP_AUTH
 export OVPN_FRAGMENT
@@ -354,7 +349,6 @@ fi
 [ -n "$OVPN_AUTH" ] && echo "auth $OVPN_AUTH" >> "$conf"
 
 [ -n "${OVPN_CLIENT_TO_CLIENT:-}" ] && echo "client-to-client" >> "$conf"
-[ "$OVPN_COMP_LZO" == "1" ] && echo "comp-lzo" >> "$conf"
 
 [ -n "${OVPN_FRAGMENT:-}" ] && echo "fragment $OVPN_FRAGMENT" >> "$conf"
 
