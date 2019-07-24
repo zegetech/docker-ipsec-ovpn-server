@@ -69,7 +69,6 @@ mute 10
 persist-key
 persist-tun
 fast-io
-auth-nocache
 EOF
 
 # Clean-up duplicate configs
