@@ -1,22 +1,26 @@
 # VPN Docker Container
 Implements 
+
 1. Libreswan IPsec L2tp and Xauth server
 2. Libreswan IPsec Payment gateway client
 3. OpenVPN Server
 
 The image sets up the following on debian stretch docker image
+
 1. [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) (IPsec/L2TP and Cisco IPsec) 
 2. [OpenVPN](https://www.github.com/adamwalach/docker-openvpn) server
 
 ## Adaptation
 The image is adapted from 
-1. https://www.github.com/adamwalach/docker-openvpn
-2. https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/Dockerfile
+
+1. [https://www.github.com/adamwalach/docker-openvpn](https://www.github.com/adamwalach/docker-openvpn)
+2. [https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/Dockerfile](https://github.com/hwdsl2/docker-ipsec-vpn-server/blob/master/Dockerfile)
 
 ## Dockerhub image
- https://hub.docker.com/r/kgathi2/ipsec-ovpn-server
+ [https://hub.docker.com/r/kgathi2/ipsec-ovpn-server](https://hub.docker.com/r/kgathi2/ipsec-ovpn-server)
 
 ## Requirements to run
+
 1. docker-compose.yaml
 2. vpn.env file for environmental variables
 
@@ -33,6 +37,7 @@ This server/node will be running Open VPN as well as Libreswan. Below are the re
 ## Open VPN Certificates
 ### Generating Open VPN client certificates
 You may generate client certificates by running the following in the container
+
 ```bash
 CLIENT_CERT=vpn-client-01
 
@@ -60,6 +65,7 @@ EOF
 
 ### Retrieve client certificate from docker container or Kubernetes pod
 On your docker/kubectl localhost, copy the files if selected `separated` or `combined-save`
+
 ```bash
 kubectl cp <some-namespace>/<some-pod>:/etc/openvpn/clients/vpn-client-01 /tmp/clients/vpn-client-01
 
@@ -72,16 +78,19 @@ Logging is important for troubleshooting iptables and other things. However `LOG
 `NFLOG` uses kernel modules so we need to mount the `/lib/modules` on docker/kubernetes host. For Kubernetes, use an `UBUNTU` node type. 
 
 Then in the container/pod install `ulogd2`
+
 ```bash
 apt-get update && apt-get install -y ulogd2
 ```
 
 Then copy `extra/ulogd.conf` to the container ulog config file `/etc/ulogd.conf`. This sets up 2 netfilter `nflog` interfaces `nflog:11` and `nflog:12`. You can add more if needed
+
 ```bash
 kubectl cp path_to/extra/ulogd.conf container_id:/etc/ulogd.conf
 ```
 
 To log `iptables` add the `LOG_DROP` chain for example as follows
+
 ```bash
 iptables -N LOG_DROP
 iptables -A LOG_DROP -j NFLOG --nflog-prefix "[fw-inc-drop]:" --nflog-group 12
@@ -91,6 +100,7 @@ iptables -A FORWARD -m conntrack --ctstate INVALID -j LOG_DROP
 ```
 
 Then you can capture the logs generated using `tail -f` or `tcpdump` on the netfilter interface.
+
 ```bash
 # The capture tcpdump on the interface. Daemon has to be off
 tcpdump -i nflog:11 
@@ -107,14 +117,17 @@ In order to make sure that the VPN as well as the tunnel is workng well, care mu
 Discovering the correct MTU is very straightforward and can be achieved using ping. Use the respective following commands (change www.example.com to suit the `PGW` ip)
 
 *On Windows*
+
 ```bash
 ping -n 1 -l 1500 -f www.example.com
 ```
 *On Linux*
+
 ```bash
 ping -M do -s 1500 -c 1 www.example.com
 ```
 *On Mac*
+
 ```bash
 ping -D -v -s 1500 -c 1 www.example.com
 ```
@@ -127,6 +140,7 @@ Configure [iptables](https://linux.die.net/man/8/iptables) for your usecase if n
 
 Forwarding traffic between subnets. OVPN_NET <> PGW_NET as well as fix ipsec MTU configuration.
 Added the following in `iptables` configuration
+
 ```bash
 iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS  --clamp-mss-to-pmtu
 iptables -I FORWARD 7 -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
@@ -134,6 +148,7 @@ iptables -I FORWARD 8 -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
 ```
 
 `iptables` are edited and take effect immediately they are saved. While logged into the terminal via `kubectl`, you can run the commands and test different settings. Here are a few helpful commands
+
 ```bash
 # Reset  Iptables
 iptables -F
@@ -160,14 +175,15 @@ iptables-save
 # List iptables stats including packet counter
 iptables -L -nv --line-numbers
 ```
-### Faster IPSEC and IPTABLES
+### Faster IPSEC, IPTABLES and OpenVPN
 The following [benchmarking and performance testing link](https://libreswan.org/wiki/Benchmarking_and_Performance_testing) is also important in helping to optimize ipsec speed for packet transfer
 
 Here's a link for [faster iptables](https://blog.cloudflare.com/how-to-drop-10-million-packets/) and [about stateless firewall](https://strongarm.io/blog/linux-stateless-firewall/) here
 
-
+Here is a link for [faster OpenVPN](https://hamy.io/post/0003/optimizing-openvpn-throughput/)
 ## Issue faced
 Disabling `rf_filter` for ipsec. To check configs do
+
 ```bash
 sysctl -a | grep \\.ip_forward
 sysctl -a | grep \\.rp_filter
@@ -179,6 +195,7 @@ sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
 
 ## IPsec client connectivity troubleshooting
 Some links useful in troubleshooting IPsec client conectivity 
+
 - [Host to host Libreswan](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security_guide/sec-Host-To-Host_VPN_Using_Libreswan#Verify_Host-To-Host_VPN_Using_Libreswan)
 
 - [Site to Site Libreswan](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/security_guide/site-to-site_vpn_using_libreswan)
@@ -193,6 +210,7 @@ For Further troubleshooting please see [original repos](#adaptation). Also for c
 You may run into some issues when setting up the tunnel. Here is an [example](https://github.com/hwdsl2/docker-ipsec-vpn-server/issues/152). In most cases you need to analyse the raw traffic to and from your servers and clients
 
 You may use some tools to troubleshoot like
+
 1. `tcpdump`
 2. `ssldump`
 3. `ulogd`
@@ -200,7 +218,8 @@ You may use some tools to troubleshoot like
 
 For packet tracing use `tcpdump` and `ssldump` to check for issues and troubleshoot `iptables`. 
 
-examples
+Examples
+
 ```bash
 apt-get update && apt-get install -y tcpdump ssldump
 
@@ -218,6 +237,7 @@ ssldump -i tun0 port 18423
 ## Note on Peer IP SNATing through Firewall whitelist
 When connecting the IPsec client behind a firewall, the IPSEC peer IP has to expect a static IP address from your pod/host configured in its firewall. Kubernetes pods SNAT the IP of the node that they are spawned in which is not consistent. So in order to have all your cluster pods have one static IP, the pods need to be behind a NAT gateway that will SNAT all pods traffic within the cluster. 
 Attempted a couple of options
+
 1. https://github.com/nirmata/kube-static-egress-ip
 2. https://ritazh.com/whitelist-egress-traffic-from-kubernetes-8a3adefd94b2
 3. https://medium.com/google-cloud/using-cloud-nat-with-gke-cluster-c82364546d9e

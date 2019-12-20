@@ -244,6 +244,11 @@ conn $PGW_NAME
   auto=start
   aggrmode=no
   nat-keepalive=yes
+  dpddelay=60
+  dpdtimeout=120
+  dpdaction=hold
+  # dpdaction=restart
+
 EOF
 
 if uname -r | grep -qi 'coreos'; then
@@ -375,6 +380,7 @@ iptables -A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 # iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS  --clamp-mss-to-pmtu
 iptables -A FORWARD -s "$OVPN_NET" -d "$PGW_NET" -j ACCEPT
 iptables -A FORWARD -s "$PGW_NET" -d "$OVPN_NET" -j ACCEPT
+iptables -A FORWARD -s "$OVPN_NET" -d "$OVPN_NET" -j ACCEPT
 iptables -A FORWARD -m conntrack --ctstate INVALID -j DROP
 # When conntrack is tracking tun traffic, this will be relevant
 # iptables -A FORWARD -i tun+ -o eth+ -j ACCEPT
